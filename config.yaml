@@ -1,0 +1,38 @@
+# Unique identifier for the run
+run_id: "AC2_nn_clip_lr1e-4"
+
+# Number of agents
+N_AGENTS: 8
+
+# Number of loops before displaying metrics
+LOOPS_BEFORE_METRICS: 2000
+
+# Number of screens to play
+NUM_SCREENS_TO_PLAY: 60000000
+
+# Number of games after which save an agent checkpoint
+NUM_GAMES_CHECKPOINT: 20000
+
+# Number of games to play to evaluate the agent
+NUM_SNAKE_LENGHT_EVALUATIONS: 100
+
+# Discount factor
+GAMMA: 0.99
+
+# Number of steps before params update
+T_MAX: 5
+
+# Entropy regularization factor
+BETA: 0.01
+
+# Clipping global norm
+CLIP: 1
+
+# Model type: 'nn' or 'linear'
+MODEL_NAME: "nn"
+
+# Learning rate for the optimizer
+lr: 0.0001
+
+# Clipping value for the optimizer
+clip: 1.0
