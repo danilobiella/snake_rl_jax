@@ -12,32 +12,18 @@ from src.game import game, game_with_history
 from src.types import ActorCriticConfig, GameState, TrainingStatistics
 
 
-@partial(
-    jax.jit,
-    static_argnums=(1,),
-)
+@partial(jax.jit, static_argnums=(1,))
 def init_vectorized_state(
     key: jax.Array, n: int
 ) -> Tuple[GameState, GameState, GameState]:
     keys = jax.random.split(key, n)
-    states = [game_with_history.random_state(k) for k in keys]
+    state_tuple = jax.vmap(game_with_history.random_state)(keys)
+    state0, state1, state2 = state_tuple
 
     return (
-        GameState(
-            snake=jnp.stack([state[0].snake for state in states]),
-            food=jnp.stack([state[0].food for state in states]),
-            is_over=jnp.stack(jnp.array([[state[0].is_over for state in states]])).T,
-        ),
-        GameState(
-            snake=jnp.stack([state[1].snake for state in states]),
-            food=jnp.stack([state[1].food for state in states]),
-            is_over=jnp.stack(jnp.array([[state[1].is_over for state in states]])).T,
-        ),
-        GameState(
-            snake=jnp.stack([state[2].snake for state in states]),
-            food=jnp.stack([state[2].food for state in states]),
-            is_over=jnp.stack(jnp.array([[state[2].is_over for state in states]])).T,
-        ),
+        GameState(snake=state0.snake, food=state0.food, is_over=state0.is_over),
+        GameState(snake=state1.snake, food=state1.food, is_over=state1.is_over),
+        GameState(snake=state2.snake, food=state2.food, is_over=state2.is_over),
     )
 
 
@@ -70,37 +56,32 @@ def null_transition(func_a):
     state = game_with_history.random_state(key)
     state_encoding = func_a.encode_state(state)
 
-    # Random action (not actually random because we don't care about the actual action,
-    # only about the tensor shapes
     action = game.random_action(key)
     action_encoding = func_a.encode_action(action)
 
-    # Take action
-    next_state, reward = game_with_history.step(key, state, action)
+    state = (
+        GameState(
+            snake=state[0].snake,
+            food=state[0].food,
+            is_over=jnp.array(True),
+        ),
+        GameState(
+            snake=state[1].snake,
+            food=state[1].food,
+            is_over=jnp.array(True),
+        ),
+        GameState(
+            snake=state[2].snake,
+            food=state[2].food,
+            is_over=jnp.array(True),
+        ),
+    )
 
     # Reward is set to -666 to distinguish not assigned states in the memory
     reward = -666
 
-    next_state = (
-        GameState(
-            snake=next_state[0].snake,
-            food=next_state[0].food,
-            is_over=jnp.array([True]),
-        ),
-        GameState(
-            snake=next_state[1].snake,
-            food=next_state[1].food,
-            is_over=jnp.array([True]),
-        ),
-        GameState(
-            snake=next_state[2].snake,
-            food=next_state[2].food,
-            is_over=jnp.array([True]),
-        ),
-    )
-
     return (
-        next_state,
+        state,
         Episode(
             states_encoding=state_encoding,
             actions_encoding=action_encoding,
@@ -113,23 +94,6 @@ def null_transition(func_a):
 @jax.jit
 def random_state_with_right_shape(key):
     state = game_with_history.random_state(key)
-    state = (
-        GameState(
-            snake=state[0].snake,
-            food=state[0].food,
-            is_over=jnp.array([state[0].is_over]),
-        ),
-        GameState(
-            snake=state[1].snake,
-            food=state[1].food,
-            is_over=jnp.array([state[1].is_over]),
-        ),
-        GameState(
-            snake=state[2].snake,
-            food=state[2].food,
-            is_over=jnp.array([state[2].is_over]),
-        ),
-    )
     return state
 
 
@@ -184,25 +148,6 @@ def get_algo_functions(
 
     @jax.jit
     def game_step(key, state, params, agent_idx):
-        # Handle is_over shape (FIXME)
-        state = (
-            GameState(
-                snake=state[0].snake,
-                food=state[0].food,
-                is_over=state[0].is_over[0],
-            ),
-            GameState(
-                snake=state[1].snake,
-                food=state[1].food,
-                is_over=state[1].is_over[0],
-            ),
-            GameState(
-                snake=state[2].snake,
-                food=state[2].food,
-                is_over=state[2].is_over[0],
-            ),
-        )
-
         state_encoding = func_approximation.encode_state(state)
 
         # Choose action
@@ -213,25 +158,6 @@ def get_algo_functions(
         # Take action
         key, subkey = jax.random.split(key)
         next_state, reward = game_with_history.step(subkey, state, action)
-
-        # FIXME Handle is_over shape
-        next_state = (
-            GameState(
-                snake=next_state[0].snake,
-                food=next_state[0].food,
-                is_over=jnp.array([next_state[0].is_over]),
-            ),
-            GameState(
-                snake=next_state[1].snake,
-                food=next_state[1].food,
-                is_over=jnp.array([next_state[1].is_over]),
-            ),
-            GameState(
-                snake=next_state[2].snake,
-                food=next_state[2].food,
-                is_over=jnp.array([next_state[2].is_over]),
-            ),
-        )
 
         return (
             next_state,
@@ -248,7 +174,7 @@ def get_algo_functions(
         key, state, params, new_steps_played, agent_idx = carry
         key, subkey = jax.random.split(key)
         next_state, new_transition, delta_steps_played = jax.lax.cond(
-            state[0].is_over[0],
+            state[0].is_over,
             lambda _: null_transition(func_approximation),
             lambda _: game_step(subkey, state, params, agent_idx),
             None,
@@ -271,13 +197,58 @@ def get_algo_functions(
         critic_grads_avg = jax.tree_map(lambda x: jnp.mean(x, axis=0), critic_grads)
 
         combined_grads = jax.tree_map(
-            lambda a, c: a + c, actor_grads_avg, critic_grads_avg
+            lambda a, c: a + 0.5 * c, actor_grads_avg, critic_grads_avg
         )
 
         updates, opt_state = opt.update(combined_grads, opt_state)
         params = optax.apply_updates(params, updates)
 
         return opt_state, params
+
+    @jax.jit
+    def _compute_grads(episode, total_reward, total_grads, params):
+        actor_total_grads, critic_total_grads = total_grads
+        total_reward = episode.rewards + config.gamma * total_reward
+        # jax.debug.print("reward: {reward}", reward=episode.rewards)
+        # jax.debug.print("total_reward 2: {total_reward}", total_reward=total_reward)
+
+        # Compute Critic gradients
+        critic_grad_fn = jax.grad(critic_loss_fn)
+        critic_grads = critic_grad_fn(
+            params,
+            episode.states_encoding,
+            total_reward,
+        )
+        # jax.debug.print("critic_grads: {critic_grads}", critic_grads=critic_grads)
+
+        # Compute Actor gradients
+        score_function_grads_fn = jax.grad(actor_score_fn)
+        entropy_grads_fn = jax.grad(policy_entropy)
+        score_function_grads = score_function_grads_fn(
+            params, episode.states_encoding, episode.actions_encoding
+        )
+        v = func_approximation.get_v(episode.states_encoding, params)
+        entropy_grads = entropy_grads_fn(params, episode.states_encoding)
+
+        actor_grads = jax.tree.map(
+            lambda x, y: -1 * (x * (total_reward - v) + config.beta * y),
+            score_function_grads,
+            entropy_grads,
+        )
+        # actor_grads = jax.tree.map(
+        #     lambda x: -1 * x * (total_reward - v),
+        #     score_function_grads,
+        # )
+
+        # Accumulate gradients
+        critic_total_grads = jax.tree_map(
+            lambda x, y: x + y, critic_total_grads, critic_grads
+        )
+        actor_total_grads = jax.tree_map(
+            lambda x, y: x + y, actor_total_grads, actor_grads
+        )
+
+        return total_reward, (actor_total_grads, critic_total_grads)
 
     @partial(jax.jit, static_argnums=(3,))
     def play_single_agent(key, state, params, agent_idx):
@@ -294,56 +265,11 @@ def get_algo_functions(
         # Check if game is over and reset if necessary
         key, subkey = jax.random.split(key)
         next_state, delta_n_games = jax.lax.cond(
-            next_state[0].is_over[0],
+            next_state[0].is_over,
             lambda _: (random_state_with_right_shape(subkey), 1),
             lambda _: (next_state, 0),
             next_state,
         )
-
-        @jax.jit
-        def _compute_grads(episode, total_reward, total_grads, params):
-            actor_total_grads, critic_total_grads = total_grads
-            total_reward = episode.rewards + config.gamma * total_reward
-            # jax.debug.print("reward: {reward}", reward=episode.rewards)
-            # jax.debug.print("total_reward 2: {total_reward}", total_reward=total_reward)
-
-            # Compute Critic gradients
-            critic_grad_fn = jax.grad(critic_loss_fn)
-            critic_grads = critic_grad_fn(
-                params,
-                episode.states_encoding,
-                total_reward,
-            )
-            # jax.debug.print("critic_grads: {critic_grads}", critic_grads=critic_grads)
-
-            # Compute Actor gradients
-            score_function_grads_fn = jax.grad(actor_score_fn)
-            entropy_grads_fn = jax.grad(policy_entropy)
-            score_function_grads = score_function_grads_fn(
-                params, episode.states_encoding, episode.actions_encoding
-            )
-            v = func_approximation.get_v(episode.states_encoding, params)
-            entropy_grads = entropy_grads_fn(params, episode.states_encoding)
-
-            actor_grads = jax.tree.map(
-                lambda x, y: -1 * (x * (total_reward - v) + config.beta * y),
-                score_function_grads,
-                entropy_grads,
-            )
-            # actor_grads = jax.tree.map(
-            #     lambda x: -1 * x * (total_reward - v),
-            #     score_function_grads,
-            # )
-
-            # Accumulate gradients
-            critic_total_grads = jax.tree_map(
-                lambda x, y: x + y, critic_total_grads, critic_grads
-            )
-            actor_total_grads = jax.tree_map(
-                lambda x, y: x + y, actor_total_grads, actor_grads
-            )
-
-            return total_reward, (actor_total_grads, critic_total_grads)
 
         @jax.jit
         def compute_grads(carry, episode):
