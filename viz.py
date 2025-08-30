@@ -18,38 +18,38 @@ data = pd.concat(
     ]
 ).sort_values("name")
 
-
-def sum_total_time_taken(df):
-    result = (
-        df.drop_duplicates(subset=["n_game", "n_frames", "name"])
-        .set_index("n_frames")
-        .sort_index()
-        .time.cumsum()
-        .rename("cum_time")
-    )
-    return result
-
-
-if len(data.name.unique()) > 1:
-    df_total_time_taken = (
-        data.groupby("name")
-        .apply(sum_total_time_taken)
-        .reset_index()
-        .rename(columns={"level_1": "n_frames"})
-    )
-else:
-    df_total_time_taken = sum_total_time_taken(data)
-    df_total_time_taken = df_total_time_taken.reset_index()
-    df_total_time_taken["name"] = data.name.unique()[0]
+#
+# def sum_total_time_taken(df):
+#     result = (
+#         df.drop_duplicates(subset=["n_game", "n_frames", "n_steps", "name"])
+#         .set_index("n_steps")
+#         .sort_index()
+#         .time.cumsum()
+#         .rename("cum_time")
+#     )
+#     return result
 
 
-data = data.merge(df_total_time_taken, on=["name", "n_frames"], how="left")
+# if len(data.name.unique()) > 1:
+#     df_total_time_taken = (
+#         data.groupby("name")
+#         .apply(sum_total_time_taken)
+#         .reset_index()
+#         .rename(columns={"level_1": "n_steps"})
+#     )
+# else:
+#     df_total_time_taken = sum_total_time_taken(data)
+#     df_total_time_taken = df_total_time_taken.reset_index()
+#     df_total_time_taken["name"] = data.name.unique()[0]
+
+
+data = data#.merge(df_total_time_taken, on=["name", "n_steps"], how="left")
 
 
 # Plot Time
 
 sns.relplot(
-    x="cum_time",
+    x="time",
     y="snake_lenght",
     hue="name",
     kind="line",
@@ -62,20 +62,22 @@ sns.relplot(
 )
 
 plt.plot(
-    [0, data["cum_time"].max()],
+    [0, data["time"].max()],
     [GRID_SIZE * GRID_SIZE, GRID_SIZE * GRID_SIZE],
     "k--",
     lw=1,
 )
 
 plt.tight_layout()
+plt.xlabel("Time (s)")
+plt.ylabel("Snake lenght")
 plt.savefig(f"{figures_folder}_time.png", dpi=200)
 plt.close()
 
-# Plot n_frames
+# Plot n_steps
 
 sns.relplot(
-    x="n_frames",
+    x="n_steps",
     y="snake_lenght",
     hue="name",
     kind="line",
@@ -88,12 +90,14 @@ sns.relplot(
 )
 
 plt.plot(
-    [0, data["n_frames"].max()],
+    [0, data["n_steps"].max()],
     [GRID_SIZE * GRID_SIZE, GRID_SIZE * GRID_SIZE],
     "k--",
     lw=1,
 )
 
 plt.tight_layout()
-plt.savefig(f"{figures_folder}_n_frames.png", dpi=300)
+plt.xlabel("Steps")
+plt.ylabel("Snake lenght")
+plt.savefig(f"{figures_folder}_n_steps.png", dpi=300)
 plt.close()

@@ -22,8 +22,8 @@ EVALUATE = True
 class StepMetrics:
     n_games: int
     n_frames: int
+    n_steps: int
     time_per_step: float
-    time_per_frame: float
     mean_snake_length: Optional[float] = None
     std_snake_length: Optional[float] = None
     snake_lengths: Optional[jnp.ndarray] = None
@@ -55,29 +55,30 @@ def setup_metrics_file(filename: str) -> None:
     print(f"Creating metrics file: {filename}")
     pathlib.Path(filename).parent.mkdir(parents=True, exist_ok=True)
     with open(filename, "w") as f:
-        f.write("n_game,n_frames,time,snake_lenght\n")
+        f.write("n_game,n_frames,n_steps,time,snake_lenght\n")
 
 
 def log_training_info(config: TrainingConfig) -> None:
     print(f"Run ID: {config.run_id}")
-    print(f"Number of games to play: {config.num_screens_to_play}")
-    print(f"Loops before metrics: {config.loops_before_metrics}")
+    print(f"Total training steps: {config.total_training_steps}")
+    print(f"Compiled steps: {config.compiled_steps}")
     print(f"Number of snake length evaluations: {config.num_snake_length_evaluations}")
     print(f"Filename: {config.metrics_filename}")
     print("")
 
 
-def log_step_metrics(metrics: StepMetrics, num_screens_to_play: int) -> None:
+def log_step_metrics(metrics: StepMetrics, total_training_steps: int) -> None:
     if metrics.mean_snake_length is None or metrics.std_snake_length is None:
         return
 
     print(
+        f"N steps: {metrics.n_steps:.1e}/{total_training_steps:.1e} - ",
         f"N games: {metrics.n_games:.1e} - ",
-        f"N frames: {metrics.n_frames:.1e}/{num_screens_to_play:.0e}\t",
-        f"{utils.format_time(metrics.time_per_step)} ",
-        f"({utils.format_time(metrics.time_per_frame)} per frame)\t",
-        f"Snake length: {metrics.mean_snake_length:.2f} ± "
-        + f"{metrics.std_snake_length:.2f}\t",
+        f"N frames: {metrics.n_frames:.1e}\t",
+        f"{utils.format_time(metrics.elapsed_time)} ",
+        f"({utils.format_time(metrics.time_per_step)} per step) ",
+        f"Snake length: {metrics.mean_snake_length:.2f} ± ",
+        f"{metrics.std_snake_length:.2f}\t",
     )
 
 
@@ -91,13 +92,14 @@ def save_metrics_to_file(
         {
             "n_game": [metrics.n_games] * num_evaluations,
             "n_frames": [metrics.n_frames] * num_evaluations,
+            "n_steps": [metrics.n_steps] * num_evaluations,
             "time": [metrics.elapsed_time] * num_evaluations,
             "snake_lenght": metrics.snake_lengths,
         }
     ).to_csv(filename, mode="a", header=False, index=False)
 
 
-def save_checkpoint(run_id: str, training_state: Any, n_frames: int) -> None:
+def save_checkpoint(run_id: str, training_state: Any, n_frames: str) -> None:
     checkpoint_path = (
         f"agents/{game.GRID_SIZE}x{game.GRID_SIZE}/{run_id}_{n_frames}.pkl"
     )
@@ -116,16 +118,16 @@ def evaluate_agent(
 
 def collect_step_metrics(
     training_state: Any,
-    time_per_step: float,
-    num_frames_per_step: int,
+    n_steps: int,
     snake_lengths: jnp.ndarray,
     elapsed_time: float,
 ) -> StepMetrics:
+    time_per_step = elapsed_time / n_steps
     metrics = StepMetrics(
         n_games=training_state.statistics.n_games,
         n_frames=training_state.statistics.n_frames,
+        n_steps=n_steps,
         time_per_step=time_per_step,
-        time_per_frame=time_per_step / num_frames_per_step,
         elapsed_time=elapsed_time,
     )
 
@@ -136,7 +138,7 @@ def collect_step_metrics(
     return metrics
 
 
-def train_async(
+def train(
     key: jax.Array,
     loop_fn: Callable,
     init_training_state: Callable,
@@ -150,22 +152,14 @@ def train_async(
     setup_metrics_file(config.metrics_filename)
 
     print("Starting training...")
-    n_games_last_update = 0
-    step = 0
+    n_steps = 0
+    n_steps_last_update = 0
 
+    start_time = time.time()
     while True:
-        step += 1
-        start_time = time.time()
+        training_state = loop_fn(training_state, config.compiled_steps)
 
-        old_frames = training_state.statistics.n_frames
-
-        training_state, time_per_step = record_time(loop_fn)(
-            training_state, config.loops_before_metrics
-        )
-
-        n_games = training_state.statistics.n_games
-        n_frames = training_state.statistics.n_frames
-        delta_frames = n_frames - old_frames
+        n_steps = n_steps + config.compiled_steps
 
         if EVALUATE:
             (snake_lengths, key), time_to_evaluate = record_time(evaluate_agent)(
@@ -180,28 +174,27 @@ def train_async(
 
             metrics = collect_step_metrics(
                 training_state,
-                time_per_step,
-                delta_frames,
+                n_steps,
                 snake_lengths,
                 elapsed_time,
             )
 
-            log_step_metrics(metrics, config.num_screens_to_play)
+            log_step_metrics(metrics, config.total_training_steps)
             save_metrics_to_file(
                 metrics,
                 config.metrics_filename,
                 config.num_snake_length_evaluations,
             )
 
-        if n_games > n_games_last_update + config.num_games_checkpoint:
+        if n_steps > n_steps_last_update + config.num_steps_checkpoint:
             save_checkpoint(
-                config.run_id,
-                training_state,
-                training_state.statistics.n_frames,
+                config.run_id, training_state, str(training_state.statistics.n_frames)
             )
-            n_games_last_update = n_games
+            n_steps_last_update = n_steps
 
-        if n_frames > config.num_screens_to_play:
+        if n_steps > config.total_training_steps:
             break
+
+    save_checkpoint(config.run_id, training_state, "final")
 
     return training_state

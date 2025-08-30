@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import pathlib
 
 import haiku as hk
@@ -9,9 +8,6 @@ import optax  # type: ignore
 
 from src import actor_critic, config_utils, func_approx, models, training
 from src.game import game, game_with_history
-
-# Configuration
-SEED = 666
 
 
 def initialize_model(model_name: str):
@@ -63,13 +59,13 @@ def main(config):
     approximator = func_approx.actor_critic_function_aproximation(
         model, func_approx.into_tensor_representation, game.action_to_num
     )
-    optimizer = setup_optimizer(config["lr"], config["clip"])
-    key = jax.random.PRNGKey(SEED)
+    optimizer = setup_optimizer(config["LR"], config["CLIP"])
+    key = jax.random.PRNGKey(config["SEED"])
     loop_fn, init_training_state_fn = actor_critic.get_algo_functions(
         optimizer, approximator, actor_critic_config
     )
 
-    training.train_async(
+    training.train(
         key, loop_fn, init_training_state_fn, approximator, optimizer, training_config
     )
 

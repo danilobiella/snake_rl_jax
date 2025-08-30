@@ -33,8 +33,8 @@ class ActorCriticConfig:
 @dataclass
 class TrainingConfig:
     run_id: str  # Unique identifier for the run
-    num_screens_to_play: int  # Number of screens to play
-    loops_before_metrics: int  # Number of loops before displaying metrics
+    total_training_steps: int  # Number of total training steps to play
+    compiled_steps: int  # Number of training steps which are compiled into a JAX for loop
     num_snake_length_evaluations: int  # Number of games to play to evaluate the agent
     metrics_filename: str  # File to save the metrics
-    num_games_checkpoint: int  # Number of games after which save an agent checkpoint
+    num_steps_checkpoint: int  # Number of steps after which save an agent checkpoint

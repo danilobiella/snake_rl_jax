@@ -1,17 +1,18 @@
 # Unique identifier for the run
-run_id: "AC2_nn_clip_lr1e-4"
+run_id: "run_lr1e-4_32agents"
 
 # Number of agents
-N_AGENTS: 8
+N_AGENTS: 32
 
-# Number of loops before displaying metrics
-LOOPS_BEFORE_METRICS: 2000
+# Number of training steps to compile into the JAX jitted for loop 
+# Practically it is the number of steps before metrics are computed
+COMPILED_STEPS: 2000
 
-# Number of screens to play
-NUM_SCREENS_TO_PLAY: 60000000
+# Total number of training steps to run 
+TOTAL_TRAINING_STEPS: 50000
 
-# Number of games after which save an agent checkpoint
-NUM_GAMES_CHECKPOINT: 20000
+# Number of steps after which save an agent checkpoint
+NUM_STEPS_CHECKPOINT: 10000
 
 # Number of games to play to evaluate the agent
 NUM_SNAKE_LENGHT_EVALUATIONS: 100
@@ -32,7 +33,10 @@ CLIP: 1
 MODEL_NAME: "nn"
 
 # Learning rate for the optimizer
-lr: 0.0001
+LR: 0.0001
 
 # Clipping value for the optimizer
-clip: 1.0
+CLIP: 1.0
+
+# Seed
+SEED: 666

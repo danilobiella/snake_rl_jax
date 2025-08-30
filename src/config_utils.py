@@ -25,9 +25,9 @@ def create_training_config(config: dict) -> TrainingConfig:
     )
     return TrainingConfig(
         run_id=config["run_id"],
-        num_screens_to_play=config["NUM_SCREENS_TO_PLAY"],
-        loops_before_metrics=config["LOOPS_BEFORE_METRICS"],
+        total_training_steps=config["TOTAL_TRAINING_STEPS"],
+        compiled_steps=config["COMPILED_STEPS"],
         num_snake_length_evaluations=config["NUM_SNAKE_LENGHT_EVALUATIONS"],
         metrics_filename=filename,
-        num_games_checkpoint=config["NUM_GAMES_CHECKPOINT"],
+        num_steps_checkpoint=config["NUM_STEPS_CHECKPOINT"],
     )
