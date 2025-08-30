@@ -6,6 +6,8 @@ import pandas as pd
 import seaborn as sns  # type: ignore
 
 GRID_SIZE = 5
+CONFIDENCE_INTERVAL_PERCENTILE = 100
+
 figures_folder = f"figures/{GRID_SIZE}x{GRID_SIZE}"
 results_folder = f"results/{GRID_SIZE}x{GRID_SIZE}"
 pathlib.Path(figures_folder).parent.mkdir(parents=True, exist_ok=True)
@@ -57,7 +59,7 @@ sns.relplot(
     aspect=2,
     facet_kws=dict(sharey=False),
     estimator="median",
-    errorbar=("pi", 75),
+    errorbar=("pi", CONFIDENCE_INTERVAL_PERCENTILE),
     alpha=0.6,
 )
 
@@ -85,7 +87,7 @@ sns.relplot(
     aspect=2,
     facet_kws=dict(sharey=False),
     estimator="median",
-    errorbar=("pi", 75),
+    errorbar=("pi", CONFIDENCE_INTERVAL_PERCENTILE),
     alpha=0.6,
 )
 
