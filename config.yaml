@@ -32,10 +32,11 @@ CLIP: 1
 # Model type: 'nn' or 'linear'
 MODEL_NAME: "nn"
 
-# Learning rate for the optimizer
-LR: 0.0001
-
-# Clipping value for the optimizer
+# Optimizer parameters
+STARTING_LR: 0.001
+DECAY_STEPS: 30000
+# alpha of cosine decay. Basically final lr = STARTING_LR * ALPHA
+ALPHA: 0.1
 CLIP: 1.0
 
 # Seed
