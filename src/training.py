@@ -3,7 +3,7 @@ import pathlib
 import pickle
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -24,10 +24,10 @@ class StepMetrics:
     n_frames: int
     n_steps: int
     time_per_step: float
-    mean_snake_length: Optional[float] = None
-    std_snake_length: Optional[float] = None
-    snake_lengths: Optional[jnp.ndarray] = None
-    elapsed_time: Optional[float] = None
+    mean_snake_length: float | None = None
+    std_snake_length: float | None = None
+    snake_lengths: jnp.ndarray | None = None
+    elapsed_time: float | None = None
 
 
 def record_time(fn):
@@ -160,6 +160,7 @@ def train(
         training_state = loop_fn(training_state, config.compiled_steps)
 
         n_steps = n_steps + config.compiled_steps
+        is_last_run = n_steps > n_steps_last_update + config.num_steps_checkpoint
 
         if EVALUATE:
             (snake_lengths, key), time_to_evaluate = record_time(evaluate_agent)(
@@ -186,13 +187,13 @@ def train(
                 config.num_snake_length_evaluations,
             )
 
-        if n_steps > n_steps_last_update + config.num_steps_checkpoint:
+        if is_last_run:
             save_checkpoint(
                 config.run_id, training_state, str(training_state.statistics.n_frames)
             )
             n_steps_last_update = n_steps
 
-        if n_steps > config.total_training_steps:
+        if n_steps >= config.total_training_steps:
             break
 
     save_checkpoint(config.run_id, training_state, "final")
