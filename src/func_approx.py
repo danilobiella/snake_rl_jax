@@ -116,12 +116,16 @@ def into_tensor_representation(state_history):
         grid_size = game.GRID_SIZE
         rep = jnp.zeros((grid_size, grid_size))
 
+        head = state.snake[0]
+        is_head_valid = jnp.all(head >= 0)
+        rep = rep.at[tuple(head)].set(jnp.where(is_head_valid, 2.0, rep[tuple(head)]))
+
         def body_fun(i, rep):
             s = state.snake[i]
             is_valid = jnp.all(s >= 0)
-            return rep.at[tuple(s)].set(jnp.where(is_valid, 1, rep[tuple(s)]))
+            return rep.at[tuple(s)].set(jnp.where(is_valid, 1.0, rep[tuple(s)]))
 
-        rep = jax.lax.fori_loop(0, len(state.snake), body_fun, rep)
+        rep = jax.lax.fori_loop(1, len(state.snake), body_fun, rep)
         return rep
 
     def extract_food_rep(state):
