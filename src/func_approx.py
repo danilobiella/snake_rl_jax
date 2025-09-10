@@ -137,4 +137,4 @@ def into_tensor_representation(state_history):
             extract_both_rep(state_history[1]),
             extract_both_rep(state_history[2]),
         ]
-    ).transpose((2, 1, 0))
+    ).transpose(1, 2, 0)
