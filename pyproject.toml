@@ -10,12 +10,12 @@ dependencies = ["tensorflow", "tensorboard-plugin-profile>=2.19.0,<2.20"]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
-snake_refactor = { path = ".", editable = true }
+snake_rl_jax = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 jaxlib = { version = ">=0.4.23,<0.5.0", build = "*cuda12*" }
